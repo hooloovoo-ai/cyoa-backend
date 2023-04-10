@@ -78,7 +78,7 @@ def generate(id: str = "",
                      return_tensors='pt').input_ids.to(DEVICE)
 
     context_len = max(HISTORY - maxNewTokens, 0)
-    logger.debug(
+    logger.info(
         f"id: {id} supplied tokens: {book.shape[1]} requested tokens: {maxNewTokens} context: {context_len} generations: {generations}")
 
     context = book[:, -context_len:]
