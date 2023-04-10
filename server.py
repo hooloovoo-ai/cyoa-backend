@@ -16,14 +16,14 @@ async def generate_api():
         abort(404)
 
     args = request.json
-
+    summarize = args.pop("summarize", True)
     generations = args.get("generations", 1)
     args["generations"] = 1
 
-    results = group(generate.signature(args)
+    results = group(generate.signature((), args)
                     for _ in range(0, generations)).apply_async().get()
 
-    if args["summarize"]:
+    if summarize:
         text_before_excerpt = args.get("text", "")[-1000:]
 
         summaries = group(alpaca.s(SUMMARY_PROMPT.format(
