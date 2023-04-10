@@ -2,7 +2,6 @@ import re
 from hashlib import md5
 from celery import bootsteps
 from celery.utils.log import get_task_logger
-from transformers import AutoTokenizer
 from .app import app
 
 logger = get_task_logger("generate")
@@ -25,6 +24,7 @@ class Bootstep(bootsteps.Step):
         super().__init__(parent, **options)
 
         import torch
+        from transformers import AutoTokenizer
         from .modeling_long import LlamaLongForCausalLM, GPTNeoXLongForCausalLM
 
         global accelerator, original_model, tokenizer
@@ -58,12 +58,12 @@ def get_id(id: str):
 
 
 @app.task
-def generate(id: str,
-             chunk: int,
-             totalChunks: int,
-             text: str,
+def generate(id: str = "",
+             chunk: int = 0,
+             totalChunks: int = 1,
+             text: str = "",
              temperature: float = 0.8,
-             repetitionPenalty=1.1,
+             repetitionPenalty = 1.1,
              maxNewTokens: int = 128,
              generations: int = 1):
 
