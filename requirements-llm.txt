@@ -6,3 +6,4 @@ git+https://github.com/jquesnelle/peft@lora-match-tensor
 accelerate
 flash-attn
 bitsandbytes
+sentencepiece
