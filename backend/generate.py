@@ -39,6 +39,7 @@ class Bootstep(bootsteps.Step):
             MODEL, torch_dtype=torch.bfloat16, device_map="auto") \
             if "llama" in MODEL else GPTNeoXLongForCausalLM.from_pretrained(
             MODEL, torch_dtype=torch.float16, device_map="auto", load_in_8bit=True)
+        logger.info(f"device map: {original_model.hf_device_map}")
 
         tokenizer = AutoTokenizer.from_pretrained(MODEL)
         tokenizer.pad_token_id = 0
