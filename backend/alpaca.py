@@ -32,7 +32,7 @@ def alpaca(prompt: str, max_new_tokens: int = 256, new_tokens_only: bool = True)
     with torch.inference_mode():
         inputs = tokenizer(prompt, return_tensors="pt").input_ids.to("cuda")
         outputs = model.generate(inputs, max_new_tokens=max_new_tokens)
-        output = tokenizer.decode(outputs[0])
+        output = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if new_tokens_only:
             output = output[len(prompt):]
         return output

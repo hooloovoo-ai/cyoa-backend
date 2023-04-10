@@ -7,3 +7,4 @@ accelerate
 flash-attn
 bitsandbytes
 sentencepiece
+ftfy
