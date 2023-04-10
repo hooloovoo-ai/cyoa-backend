@@ -1,8 +1,8 @@
 from celery import Celery, bootsteps
 from celery.utils.log import get_task_logger
-from .app import app
 
-logger = get_task_logger("alpaca")
+app = Celery(__name__)
+logger = get_task_logger(__name__)
 
 model = None
 tokenizer = None

@@ -1,9 +1,10 @@
 import re
 from hashlib import md5
-from celery import bootsteps
+from celery import Celery, bootsteps
 from celery.utils.log import get_task_logger
-from .app import app
 
+app = Celery(__name__)
+logger = get_task_logger(__name__)
 logger = get_task_logger("generate")
 
 
@@ -45,7 +46,9 @@ class Bootstep(bootsteps.Step):
         tokenizer.pad_token_id = 0
         tokenizer.model_max_length = original_model.config.max_positions
 
+
 app.steps['worker'].add(Bootstep)
+
 
 def get_model(id: str):
     if not FINETUNING:
@@ -63,7 +66,7 @@ def generate(id: str = "",
              totalChunks: int = 1,
              text: str = "",
              temperature: float = 0.8,
-             repetitionPenalty = 1.1,
+             repetitionPenalty=1.1,
              maxNewTokens: int = 128,
              generations: int = 1):
 
