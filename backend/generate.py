@@ -70,6 +70,8 @@ def generate(id: str = "",
     import torch
     import ftfy
 
+    logger.info(f"text: {text}, maxNewTokens: {maxNewTokens}")
+
     id = get_id(id)
 
     header = tokenizer(f"ID: {id} Chunk: {chunk} of {totalChunks}\n\n\n",
