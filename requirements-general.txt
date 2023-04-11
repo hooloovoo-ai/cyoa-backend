@@ -1,3 +1,2 @@
 pydub
-ffmpeg
 google-cloud-storage
