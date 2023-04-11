@@ -43,17 +43,18 @@ def combine_audio_convert_and_upload(hash_of_text: str, parts: List[str]):
     encoded = joined.export(format="mp3")
 
     blob = storage_bucket.blob(f"cyoa/audio/{hash_of_text}.mp3")
-    blob.metadata["duration"] = duration
-    blob.upload_from_file(encoded)
+    blob.metadata = {"duration": duration}
+    blob.upload_from_file(encoded, content_type="audio/mpeg")
 
     return {"url": blob.public_url, "duration": duration}
 
 
 @app.task
 def get_existing_audio_for_text(hash_of_text: str):
-    blob = storage_bucket.blob(f"cyoa/audio/{hash_of_text}.mp3")
+    path = f"cyoa/audio/{hash_of_text}.mp3"
 
-    if blob.exists():
-        return {"url": blob.public_url, "duration": blob.metadata.get("duration", -1)}
+    if storage_bucket.blob(path).exists():
+        blob = storage_bucket.get_blob(path)
+        return {"url": blob.public_url, "duration": float(blob.metadata.get("duration", "-1"))}
     else:
         return {"url": "", "duration": -1}
