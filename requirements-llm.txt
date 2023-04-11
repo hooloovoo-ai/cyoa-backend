@@ -4,7 +4,5 @@ torchaudio
 git+https://github.com/huggingface/transformers@66d1eee6827fe85378bfcacf66d1aaf43d787a5c
 git+https://github.com/jquesnelle/peft@lora-match-tensor
 accelerate
-flash-attn
-bitsandbytes
 sentencepiece
 ftfy
