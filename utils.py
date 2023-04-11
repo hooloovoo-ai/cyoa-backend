@@ -1,4 +1,9 @@
 import re
+from hashlib import md5
+
+
+def text_hash(text: str):
+    return md5(text.encode("utf-8")).hexdigest()
 
 
 def split_and_recombine_text(text, desired_length=200, max_length=300):
