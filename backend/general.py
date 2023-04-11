@@ -7,7 +7,7 @@ app = Celery(__name__)
 logger = get_task_logger(__name__)
 
 @app.task
-def combine_audio_upload(parts: List[str]) -> str:
+def combine_audio_convert_and_upload(parts: List[str]) -> str:
     import soundfile
-    
+
     decoded = [b64decode(part) for part in parts]
