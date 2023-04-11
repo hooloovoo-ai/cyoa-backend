@@ -8,7 +8,7 @@ logger = get_task_logger(__name__)
 logger = get_task_logger("generate")
 
 
-MODEL = "emozilla/llama-long-13b-scifi-fantasy-673-8192h-epoch4"
+MODEL = "emozilla/llama-long-7b-scifi-fantasy-673-8192h-epoch4"
 HISTORY = 8192
 LEARNING_RATE = 3e-4
 DEVICE = "cuda"
@@ -72,8 +72,6 @@ def generate(id: str = "",
 
     import torch
     import ftfy
-
-    logger.info(f"text: {text}, maxNewTokens: {maxNewTokens}")
 
     id = get_id(id)
 
