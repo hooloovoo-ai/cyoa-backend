@@ -45,4 +45,4 @@ def tts(text: str, num_autoregressive_samples=16, diffusion_iterations=30) -> st
     soundfile.write(output, numpy.ravel(audio.numpy()),
                     samplerate=24000, format="WAV")
 
-    return b64encode(output)
+    return b64encode(output.getvalue()).decode("ascii")
