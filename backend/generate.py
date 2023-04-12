@@ -12,6 +12,7 @@ HISTORY = 8192
 LEARNING_RATE = 3e-4
 DEVICE = "cuda"
 FINETUNING = False
+QUANTIZE = False
 
 models = {}
 original_model = None
@@ -36,9 +37,9 @@ class Bootstep(bootsteps.Step):
             accelerator = None
 
         original_model = LlamaLongForCausalLM.from_pretrained(
-            MODEL, torch_dtype=torch.bfloat16, device_map="auto") \
+            MODEL, torch_dtype=torch.bfloat16, device_map="auto", load_in_8bit=QUANTIZE) \
             if "llama" in MODEL else GPTNeoXLongForCausalLM.from_pretrained(
-            MODEL, torch_dtype=torch.float16, device_map="auto", load_in_8bit=True)
+            MODEL, torch_dtype=torch.float16, device_map="auto", load_in_8bit=QUANTIZE)
         logger.info(f"device map: {original_model.hf_device_map}")
 
         tokenizer = AutoTokenizer.from_pretrained(MODEL)
