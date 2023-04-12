@@ -33,12 +33,22 @@ app.steps["worker"].add(Bootstep)
 
 
 @app.task
-def alpaca(prompt: str, max_new_tokens: int = 256, new_tokens_only: bool = True) -> str:
+def alpaca(
+    prompt: str,
+    max_new_tokens: int = 256,
+    new_tokens_only: bool = True,
+    temperature=None,
+) -> str:
     import torch
 
     with torch.inference_mode():
         inputs = tokenizer(prompt, return_tensors="pt").input_ids.to("cuda")
-        outputs = model.generate(inputs, max_new_tokens=max_new_tokens)
+        outputs = model.generate(
+            inputs,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            do_sample=temperature is not None,
+        )
         output = tokenizer.decode(outputs[0], skip_special_tokens=True)
         if new_tokens_only:
             output = output[len(prompt) :]
