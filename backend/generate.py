@@ -12,7 +12,7 @@ HISTORY = 8192
 LEARNING_RATE = 3e-4
 DEVICE = "cuda"
 FINETUNING = False
-QUANTIZE = False
+QUANTIZE = True
 
 models = {}
 original_model = None
