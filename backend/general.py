@@ -1,15 +1,18 @@
 from base64 import b64decode
+from io import BytesIO
 from celery import Celery, bootsteps
 from celery.utils.log import get_task_logger
 from functools import reduce
 from typing import List
-from tempfile import NamedTemporaryFile
+
 
 app = Celery(__name__)
 logger = get_task_logger(__name__)
 
 SERVICE_ACCOUNT_PATH = "../service_account.json"
 BUCKET = "literai"
+SUMMARY_PROMPT = "Below is an EXCERPT from a book, and the TEXT IMMEDIATELY BEFORE EXCERPT. In the active voice, write an interesting SHORT SUMMARY OF ONLY EXCERPT, using TEXT IMMEDIATELY BEFORE EXCERPT to provide context, but not directly summarizing TEXT IMMEDIATELY BEFORE EXCERPT. Do not use the word \"excerpt\".\n\nTEXT IMMEDIATELY BEFORE EXCERPT:\n{text_before_excerpt}\n\nEXCERPT:\n{excerpt}\n\nSHORT SUMMARY OF ONLY EXCERPT:\n"
+DESCRIBE_PROMPT = "Below is an EXCERPT from a book. Write a DESCRIPTION OF ILLUSTRATION OF EXCERPT that would be suitable as a prompt to an image generation model such as Stable Diffusion or Midjourney.\n\nEXCERPT:\n{excerpt}\n\nDESCRIPTION OF ILLUSTRATION OF EXCERPT:\n"
 
 storage_client = None
 storage_bucket = None
@@ -58,3 +61,38 @@ def get_existing_audio_for_text(hash_of_text: str):
         return {"url": blob.public_url, "duration": float(blob.metadata.get("duration", "-1"))}
     else:
         return {"url": "", "duration": -1}
+
+
+@app.task
+def get_existing_images_for_text(hash_of_text: str):
+    results = []
+
+    i = 0
+    while True:
+        path = f"cyoa/images/{hash_of_text}-{i}.jpg"
+
+        if storage_bucket.blob(path).exists():
+            results.append(storage_bucket.get_blob(path).public_url)
+            i += 1
+        else:
+            break
+
+    return results
+
+@app.task
+def upload_image(hash_of_text: str, index: int, encoded: str):
+    data = BytesIO(b64decode(encoded))
+
+    blob = storage_bucket.blob(f"cyoa/images/{hash_of_text}-{index}.jpg")
+    blob.upload_from_file(data, content_type="image/jpeg")
+
+    return blob.public_url
+
+@app.task
+def summary_prompt(text_before_excerpt: str, excerpt: str):
+    return SUMMARY_PROMPT.format(text_before_excerpt=text_before_excerpt.replace("\n", ""), excerpt=excerpt.replace("\n", ""))
+
+
+@app.task
+def describe_prompt(excerpt: str):
+    return DESCRIBE_PROMPT.format(excerpt=excerpt.lower().replace("\n", "").replace(". ", ", ").strip())

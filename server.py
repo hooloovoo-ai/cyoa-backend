@@ -2,17 +2,14 @@ import logging
 import time
 from flask import Flask, request, abort, jsonify
 from flask_cors import CORS
-from celery import group
+from celery import group, chain
 from backend.generate import generate
 from backend.alpaca import alpaca
 from backend.tts import tts
-from backend.general import combine_audio_convert_and_upload, get_existing_audio_for_text
+from backend.general import combine_audio_convert_and_upload, get_existing_audio_for_text, summary_prompt, describe_prompt, get_existing_images_for_text, upload_image
+from backend.images import images
 from utils import split_and_recombine_text, text_hash
 
-# SUMMARY_PROMPT = "TEXT BEFORE EXCERPT:\n{text_before_excerpt}\n\nEXCERPT:\n{excerpt}\n\nSHORT SUMMARY OF ONLY THE EXCERPT:\n"
-# SUMMARY_PROMPT = "Write a short summary of the following text.\n\n{text_before_excerpt} {excerpt}\n\nSHORT SUMMARY:\n"
-SUMMARY_PROMPT = "Below is an EXCERPT from a book, and the TEXT IMMEDIATELY BEFORE EXCERPT. In the active voice, write an interesting SHORT SUMMARY OF ONLY EXCERPT, using TEXT IMMEDIATELY BEFORE EXCERPT to provide context, but not directly summarizing TEXT IMMEDIATELY BEFORE EXCERPT. Do not use the word \"excerpt\".\n\nTEXT IMMEDIATELY BEFORE EXCERPT:\n{text_before_excerpt}\n\nEXCERPT:\n{excerpt}\n\nSHORT SUMMARY OF ONLY EXCERPT:\n"
-DESCRIBE_PROMPT = "Below is an EXCERPT from a book. Write a DESCRIPTION OF ILLUSTRATION OF EXCERPT that would be suitable as a prompt to an image generation model such as Stable Diffusion or Midjourney.\n\nEXCERPT:\n{excerpt}\n\nDESCRIPTION OF ILLUSTRATION OF EXCERPT:\n"
 OPTIMAL_TTS_SPLIT = 8
 MAX_TTS_SPLIT_FLACTOR = 1.25
 NUM_IMAGES = 3
@@ -40,8 +37,8 @@ async def generate_api():
 
     if summarize:
         text_before_excerpt = args.get("text", "")[-500:].replace("\n", "")
-        prompts = [SUMMARY_PROMPT.format(
-            text_before_excerpt=text_before_excerpt, excerpt=result.replace("\n", "")) for result in results]
+        prompts = [summary_prompt(text_before_excerpt, result)
+                   for result in results]
 
         summaries = group([alpaca.s(prompt)
                           for prompt in prompts]).apply_async().get()
@@ -61,14 +58,20 @@ async def imagine_api():
 
     hash_of_text = text_hash(text)
 
-    prompts = [DESCRIBE_PROMPT.format(excerpt=text.lower().replace(
-        "\n", "").replace(". ", ", "))] * NUM_IMAGES
-    descriptions = group([alpaca.s(prompt, temperature=0.7)
-                          for prompt in prompts]).apply_async().get()
+    existing = group(get_existing_audio_for_text.s(
+        hash_of_text), get_existing_images_for_text.s(hash_of_text)).apply_async().get()
 
-    app.logger.info(f"descriptions: {descriptions}")
+    audio = existing[0]
+    images = existing[1]
 
-    audio = get_existing_audio_for_text.delay(hash_of_text).get()
+    if len(images) == 0:
+        describe_prompt = describe_prompt(text)
+
+        pending_images = group([chain(alpaca.s(describe_prompt, temperature=0.7), images.s(
+        ), upload_image.s(hash_of_text, i)) for i in range(0, NUM_IMAGES)]).apply_async()
+    else:
+        pending_images = None
+
     if audio["duration"] <= 0:
         desired_length = int(len(text) / OPTIMAL_TTS_SPLIT) + 1
         max_length = int(desired_length * MAX_TTS_SPLIT_FLACTOR) + 1
@@ -82,7 +85,11 @@ async def imagine_api():
         audio = combine_audio_convert_and_upload.delay(
             hash_of_text, parts).get()
 
+    if pending_images is not None:
+        images = pending_images.get()
+
     return jsonify({
         "audio_url": audio["url"],
-        "audio_duration": audio["duration"]
+        "audio_duration": audio["duration"],
+        "images": images
     })
