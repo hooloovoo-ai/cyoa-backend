@@ -8,4 +8,5 @@ task_routes = {
     "backend.generate.generate": {"queue": "generate"},
     "backend.alpaca.alpaca": {"queue": "alpaca"},
     "backend.tts.tts": {"queue": "tts"},
+    "backend.images.images": {"queue": "images"},
 }
