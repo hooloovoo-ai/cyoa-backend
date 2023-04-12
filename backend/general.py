@@ -94,14 +94,14 @@ def upload_image(hash_of_text: str, index: int, encoded: str):
 
 @app.task
 def summary_prompt(text_before_excerpt: str, excerpt: str):
-    return SUMMARY_PROMPT.format(text_before_excerpt=text_before_excerpt.replace("\n", ""), excerpt=excerpt.replace("\n", ""))
+    return SUMMARY_PROMPT.format(text_before_excerpt=text_before_excerpt.replace("\n", " "), excerpt=excerpt.replace("\n", " "))
 
 
 @app.task
 def describe_prompt(excerpt: str):
-    return DESCRIBE_PROMPT.format(excerpt=excerpt.replace("\n", ""))
+    return DESCRIBE_PROMPT.format(excerpt=excerpt.replace("\n", " "))
 
 
 @app.task
 def image_prompt(description: str):
-    return IMAGE_PROMPT.format(description=description.lower().replace("\n", "").replace(". ", ", ").strip())
+    return IMAGE_PROMPT.format(description=description.lower().replace("\n", " ").replace(". ", ", ").strip())
