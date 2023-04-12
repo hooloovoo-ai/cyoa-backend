@@ -6,7 +6,7 @@ from celery import group, chain
 from backend.generate import generate
 from backend.alpaca import alpaca
 from backend.tts import tts
-from backend.general import combine_audio_convert_and_upload, get_existing_audio_for_text, summary_prompt, describe_prompt, get_existing_images_for_text, upload_image
+from backend.general import combine_audio_convert_and_upload, get_existing_audio_for_text, summary_prompt, describe_prompt, get_existing_images_for_text, upload_image, image_prompt, IMAGE_NEGATIVE_PROMPT
 from backend.images import images
 from utils import split_and_recombine_text, text_hash
 
@@ -62,13 +62,13 @@ async def imagine_api():
         hash_of_text), get_existing_images_for_text.s(hash_of_text)).apply_async().get()
 
     audio = existing[0]
-    images = existing[1]
+    jpegs = existing[1]
 
-    if len(images) == 0:
-        describe_prompt = describe_prompt(text)
+    if len(jpegs) == 0:
+        prompt = describe_prompt(text)
 
-        pending_images = group([chain(alpaca.s(describe_prompt, temperature=0.7), images.s(
-        ), upload_image.s(hash_of_text, i)) for i in range(0, NUM_IMAGES)]).apply_async()
+        pending_images = group([chain(alpaca.s(prompt, temperature=0.7), image_prompt.s(), images.s(
+            negative_prompt=IMAGE_NEGATIVE_PROMPT), upload_image.s(hash_of_text, i)) for i in range(0, NUM_IMAGES)]).apply_async()
     else:
         pending_images = None
 
@@ -86,10 +86,10 @@ async def imagine_api():
             hash_of_text, parts).get()
 
     if pending_images is not None:
-        images = pending_images.get()
+        jpegs = pending_images.get()
 
     return jsonify({
         "audio_url": audio["url"],
         "audio_duration": audio["duration"],
-        "images": images
+        "images": jpegs
     })

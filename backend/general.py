@@ -13,6 +13,8 @@ SERVICE_ACCOUNT_PATH = "../service_account.json"
 BUCKET = "literai"
 SUMMARY_PROMPT = "Below is an EXCERPT from a book, and the TEXT IMMEDIATELY BEFORE EXCERPT. In the active voice, write an interesting SHORT SUMMARY OF ONLY EXCERPT, using TEXT IMMEDIATELY BEFORE EXCERPT to provide context, but not directly summarizing TEXT IMMEDIATELY BEFORE EXCERPT. Do not use the word \"excerpt\".\n\nTEXT IMMEDIATELY BEFORE EXCERPT:\n{text_before_excerpt}\n\nEXCERPT:\n{excerpt}\n\nSHORT SUMMARY OF ONLY EXCERPT:\n"
 DESCRIBE_PROMPT = "Below is an EXCERPT from a book. Write a DESCRIPTION OF ILLUSTRATION OF EXCERPT that would be suitable as a prompt to an image generation model such as Stable Diffusion or Midjourney.\n\nEXCERPT:\n{excerpt}\n\nDESCRIPTION OF ILLUSTRATION OF EXCERPT:\n"
+IMAGE_PROMPT = "(extremely detailed CG unity 8k wallpaper), {description}, professional majestic oil painting by Ed Blinkey, Atey Ghailan, by Jeremy Mann, Greg Manchess, Antonio Moro, trending on ArtStation, trending on CGSociety, Intricate, High Detail, Sharp focus, dramatic, photorealistic painting art by midjourney and greg rutkowski"
+IMAGE_NEGATIVE_PROMPT = "canvas frame, cartoon, 3d, ((disfigured)), ((bad art)), ((deformed)),((extra limbs)),((close up)),((b&w)), wierd colors, blurry, (((duplicate))), ((morbid)), ((mutilated)), [out of frame], extra fingers, mutated hands, ((poorly drawn hands)), ((poorly drawn face)), (((mutation))), (((deformed))), ((ugly)), blurry, ((bad anatomy)), (((bad proportions))), ((extra limbs)), cloned face, (((disfigured))), out of frame, ugly, extra limbs, (bad anatomy), gross proportions, (malformed limbs), ((missing arms)), ((missing legs)), (((extra arms))), (((extra legs))), mutated hands, (fused fingers), (too many fingers), (((long neck))), Photoshop, video game, ugly, tiling, poorly drawn hands, poorly drawn feet, poorly drawn face, out of frame, mutation, mutated, extra limbs, extra legs, extra arms, disfigured, deformed, cross-eye, body out of frame, blurry, bad art, bad anatomy, 3d render"
 
 storage_client = None
 storage_bucket = None
@@ -79,6 +81,7 @@ def get_existing_images_for_text(hash_of_text: str):
 
     return results
 
+
 @app.task
 def upload_image(hash_of_text: str, index: int, encoded: str):
     data = BytesIO(b64decode(encoded))
@@ -88,6 +91,7 @@ def upload_image(hash_of_text: str, index: int, encoded: str):
 
     return blob.public_url
 
+
 @app.task
 def summary_prompt(text_before_excerpt: str, excerpt: str):
     return SUMMARY_PROMPT.format(text_before_excerpt=text_before_excerpt.replace("\n", ""), excerpt=excerpt.replace("\n", ""))
@@ -95,4 +99,9 @@ def summary_prompt(text_before_excerpt: str, excerpt: str):
 
 @app.task
 def describe_prompt(excerpt: str):
-    return DESCRIBE_PROMPT.format(excerpt=excerpt.lower().replace("\n", "").replace(". ", ", ").strip())
+    return DESCRIBE_PROMPT.format(excerpt=excerpt.replace("\n", ""))
+
+
+@app.task
+def image_prompt(description: str):
+    return IMAGE_PROMPT.format(description=description.lower().replace("\n", "").replace(". ", ", ").strip())
