@@ -62,9 +62,9 @@ async def imagine_api():
         hash_of_text), get_existing_images_for_text.s(hash_of_text)).apply_async().get()
 
     audio = existing[0]
-    jpegs = existing[1]
+    pngs = existing[1]
 
-    if len(jpegs) == 0:
+    if len(pngs) == 0:
         prompt = describe_prompt(text)
 
         pending_images = group([chain(alpaca.s(prompt, temperature=0.7), image_prompt.s(), images.s(
@@ -86,10 +86,9 @@ async def imagine_api():
             hash_of_text, parts).get()
 
     if pending_images is not None:
-        jpegs = pending_images.get()
+        pngs = pending_images.get()
 
     return jsonify({
-        "audio_url": audio["url"],
-        "audio_duration": audio["duration"],
-        "images": jpegs
+        "audio": audio,
+        "images": pngs
     })

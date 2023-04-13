@@ -71,7 +71,7 @@ def get_existing_images_for_text(hash_of_text: str):
 
     i = 0
     while True:
-        path = f"cyoa/images/{hash_of_text}-{i}.jpg"
+        path = f"cyoa/images/{hash_of_text}-{i}.png"
 
         if storage_bucket.blob(path).exists():
             results.append(storage_bucket.get_blob(path).public_url)
@@ -86,8 +86,8 @@ def get_existing_images_for_text(hash_of_text: str):
 def upload_image(hash_of_text: str, index: int, encoded: str):
     data = BytesIO(b64decode(encoded))
 
-    blob = storage_bucket.blob(f"cyoa/images/{hash_of_text}-{index}.jpg")
-    blob.upload_from_file(data, content_type="image/jpeg")
+    blob = storage_bucket.blob(f"cyoa/images/{hash_of_text}-{index}.png")
+    blob.upload_from_file(data, content_type="image/png")
 
     return blob.public_url
 
