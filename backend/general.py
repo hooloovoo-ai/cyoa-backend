@@ -83,7 +83,7 @@ def get_existing_images_for_text(hash_of_text: str):
 
 
 @app.task
-def upload_image(hash_of_text: str, index: int, encoded: str):
+def upload_image(encoded: str, hash_of_text: str, index: int):
     data = BytesIO(b64decode(encoded))
 
     blob = storage_bucket.blob(f"cyoa/images/{hash_of_text}-{index}.png")
