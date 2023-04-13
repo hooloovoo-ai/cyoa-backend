@@ -67,14 +67,16 @@ async def imagine_api():
     if len(pngs) == 0:
         prompt = describe_prompt(text)
 
-        pending_images = group([chain(alpaca.s(prompt, temperature=0.7), image_prompt.s(), images.s(
+        pending_images = group([chain(alpaca.s(prompt, temperature=0.8, max_new_tokens=128), image_prompt.s(), images.s(
             negative_prompt=IMAGE_NEGATIVE_PROMPT), upload_image.s(hash_of_text, i)) for i in range(0, NUM_IMAGES)]).apply_async()
     else:
         pending_images = None
 
     if audio["duration"] <= 0:
-        desired_length = int(len(text) / OPTIMAL_TTS_SPLIT) + 1
-        max_length = int(desired_length * MAX_TTS_SPLIT_FLACTOR) + 1
+        # desired_length = max(100, int(len(text) / OPTIMAL_TTS_SPLIT) + 1)
+        # max_length = max(125, int(desired_length * MAX_TTS_SPLIT_FLACTOR) + 1)
+        desired_length = 120
+        max_length = 150
         texts = split_and_recombine_text(
             text, desired_length=desired_length, max_length=max_length)
         app.logger.info(
