@@ -38,11 +38,8 @@ app.steps['worker'].add(Bootstep)
 
 
 @app.task
-def combine_audio_convert_and_upload(hash_of_text: str, parts: List[str]):
+def combine_audio_convert_and_upload(parts: List[str], hash_of_text: str):
     from pydub import AudioSegment
-
-    logger.info(f"hash_of_text: {hash_of_text}")
-    logger.info(f"parts: {parts}")
 
     segments = [AudioSegment(data=b64decode(part)) for part in parts]
     joined = reduce(lambda a, b: a + b, segments)
