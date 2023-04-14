@@ -79,17 +79,16 @@ async def imagine_api():
         max_length = 150
         texts = split_and_recombine_text(
             text, desired_length=desired_length, max_length=max_length)
-
-        pending_audio = chord(tts.s(part) for part in texts)(
-            combine_audio_convert_and_upload.s(hash_of_text))
-    else:
-        pending_audio = None
+        app.logger.info(
+            f"Rendering audio in {len(texts)} parts using desired_length={desired_length} and max_length={max_length}")
+        start = time.time()
+        parts = group([tts.s(part) for part in texts]).apply_async().get()
+        app.logger.info(f"Rendered audio in {time.time() - start} seconds")
+        audio = combine_audio_convert_and_upload.delay(
+            parts, hash_of_text).get()
 
     if pending_images is not None:
         pngs = [x.get() for x in pending_images]
-
-    if pending_audio is not None:
-        audio = pending_audio.get()
 
     return jsonify({
         "audio": audio,
