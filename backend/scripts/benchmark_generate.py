@@ -39,7 +39,9 @@ def benchmark(model_name: str, quantize: bool) -> List[Tuple[int, float]]:
         f"{TITLE}\n\n{AUTHOR}\n\n\n\n{START}", return_tensors="pt"
     ).input_ids.to("cuda")
 
-    results = []
+    f = open(
+        f"{model_name.replace('/', '-')}{'_8bit' if quantize else ''}.csv", "w")
+    f.write("Tokens,Time\n")
 
     with torch.inference_mode():
         with tqdm(total=TARGET_TOKEN_LENGTH - book.shape[1]) as pbar:
@@ -63,7 +65,8 @@ def benchmark(model_name: str, quantize: bool) -> List[Tuple[int, float]]:
                 input_ids = torch.cat([input_ids] * NUM_GENERATIONS, dim=0)
                 # input_ids = context
                 attention_mask = torch.ones(1, input_ids.shape[1])
-                attention_mask = torch.cat([attention_mask] * NUM_GENERATIONS, dim=0)
+                attention_mask = torch.cat(
+                    [attention_mask] * NUM_GENERATIONS, dim=0)
 
                 output_tokens = model.generate(
                     input_ids=input_ids.to("cuda"),
@@ -74,7 +77,7 @@ def benchmark(model_name: str, quantize: bool) -> List[Tuple[int, float]]:
                     repetition_penalty=1.1,
                 )
 
-                new_tokens = output_tokens[:, input_ids.shape[1] :]
+                new_tokens = output_tokens[:, input_ids.shape[1]:]
 
                 _ = tokenizer.decode(new_tokens[0], skip_special_tokens=True)
 
@@ -83,9 +86,10 @@ def benchmark(model_name: str, quantize: bool) -> List[Tuple[int, float]]:
                 book = torch.cat((book, new_tokens[0][None, :].to("cuda")), 1)
 
                 end = time.time()
-                results.append((book.shape[1], end - start))
 
-    return results
+                f.write(f"{book.shape[1]},{end - start}\n")
+                f.flush()
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -93,12 +97,10 @@ def parse_args():
     parser.add_argument("--quantize", action="store_true")
     return parser.parse_args()
 
+
 def main(args):
     results = benchmark(args.model_name, args.quantize)
 
-    with open(f"{args.model_name.replace('/', '-')}{'_8bit' if args.quantize else ''}.csv", "w") as f:
-        f.write("Tokens,Time\n")
-        f.writelines([f"{point[0]},{point[1]}\n" for point in results])
-    
+
 if __name__ == "__main__":
     sys.exit(main(parse_args()))
