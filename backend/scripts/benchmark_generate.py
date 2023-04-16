@@ -31,6 +31,7 @@ def benchmark(model_name: str, quantize: bool) -> List[Tuple[int, float]]:
     model = LlamaLongForCausalLM.from_pretrained(
         model_name, torch_dtype=torch.bfloat16, load_in_8bit=quantize, device_map="auto"
     )
+    print(f"device map: {model.hf_device_map}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     tokenizer.model_max_length = model.config.max_positions
@@ -41,7 +42,7 @@ def benchmark(model_name: str, quantize: bool) -> List[Tuple[int, float]]:
 
     f = open(
         f"{model_name.replace('/', '-')}{'_8bit' if quantize else ''}.csv", "w")
-    f.write("Tokens,Time\n")
+    f.write("Prompt tokens,Inference tokens/sec\n")
 
     with torch.inference_mode():
         with tqdm(total=TARGET_TOKEN_LENGTH - book.shape[1]) as pbar:
@@ -87,7 +88,7 @@ def benchmark(model_name: str, quantize: bool) -> List[Tuple[int, float]]:
 
                 end = time.time()
 
-                f.write(f"{book.shape[1]},{end - start}\n")
+                f.write(f"{current_token_length},{MAX_NEW_TOKENS / (end - start)}\n")
                 f.flush()
 
 
