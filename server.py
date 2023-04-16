@@ -12,7 +12,6 @@ from utils import split_and_recombine_text, text_hash
 
 OPTIMAL_TTS_SPLIT = 8
 MAX_TTS_SPLIT_FLACTOR = 1.25
-NUM_IMAGES = 3
 
 app = Flask("server")
 CORS(app, origins=["http://localhost",
@@ -64,15 +63,16 @@ async def imagine_api():
     audio = existing[0]
     pngs = existing[1]
 
-    if len(pngs) == 0:
+    num_images = max(0, args.get("images", 2) - len(pngs))
+    if num_images > 0:
         prompt = describe_prompt(text)
 
         pending_images = [chain(alpaca.s(prompt, temperature=0.8, max_new_tokens=128), image_prompt.s(), images.s(
-            negative_prompt=IMAGE_NEGATIVE_PROMPT), upload_image.s(hash_of_text, i)).apply_async() for i in range(0, NUM_IMAGES)]
+            negative_prompt=IMAGE_NEGATIVE_PROMPT), upload_image.s(hash_of_text, i)).apply_async() for i in range(0, num_images)]
     else:
         pending_images = None
 
-    if audio["duration"] <= 0:
+    if args.get("audio", False) and audio["duration"] <= 0:
         # desired_length = max(100, int(len(text) / OPTIMAL_TTS_SPLIT) + 1)
         # max_length = max(125, int(desired_length * MAX_TTS_SPLIT_FLACTOR) + 1)
         desired_length = 120

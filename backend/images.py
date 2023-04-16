@@ -2,11 +2,8 @@ import os
 from celery import Celery, bootsteps
 from celery.utils.log import get_task_logger
 
-
 app = Celery(__name__)
 logger = get_task_logger(__name__)
-
-port = int(os.environ["PORT"])
 
 @app.task
 def images(
@@ -19,6 +16,8 @@ def images(
     cfg_scale: float = 10.0,
 ):
     import requests
+
+    port = int(os.environ["PORT"])
 
     response = requests.post(f"http://127.0.0.1:{port}/sdapi/v1/txt2img", json={
         "prompt": prompt,
