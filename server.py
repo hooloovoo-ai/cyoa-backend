@@ -2,7 +2,7 @@ import logging
 import time
 from flask import Flask, request, abort, jsonify
 from flask_cors import CORS
-from celery import group, chain
+from celery import group, chain, chord
 from backend.generate import generate
 from backend.alpaca import alpaca
 from backend.tts import tts
@@ -67,8 +67,8 @@ async def imagine_api():
     if len(pngs) == 0:
         prompt = describe_prompt(text)
 
-        pending_images = group([chain(alpaca.s(prompt, temperature=0.8, max_new_tokens=128), image_prompt.s(), images.s(
-            negative_prompt=IMAGE_NEGATIVE_PROMPT), upload_image.s(hash_of_text, i)) for i in range(0, NUM_IMAGES)]).apply_async()
+        pending_images = [chain(alpaca.s(prompt, temperature=0.8, max_new_tokens=128), image_prompt.s(), images.s(
+            negative_prompt=IMAGE_NEGATIVE_PROMPT), upload_image.s(hash_of_text, i)).apply_async() for i in range(0, NUM_IMAGES)]
     else:
         pending_images = None
 
@@ -85,10 +85,10 @@ async def imagine_api():
         parts = group([tts.s(part) for part in texts]).apply_async().get()
         app.logger.info(f"Rendered audio in {time.time() - start} seconds")
         audio = combine_audio_convert_and_upload.delay(
-            hash_of_text, parts).get()
+            parts, hash_of_text).get()
 
     if pending_images is not None:
-        pngs = pending_images.get()
+        pngs = [x.get() for x in pending_images]
 
     return jsonify({
         "audio": audio,
