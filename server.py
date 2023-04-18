@@ -35,7 +35,7 @@ async def generate_api():
     results = [result[0] for result in results]
 
     if summarize:
-        text_before_excerpt = args.get("text", "")[-500:].replace("\n", "")
+        text_before_excerpt = args.get("text", "")[-128:].replace("\n", " ")
         prompts = [summary_prompt(text_before_excerpt, result)
                    for result in results]
 
