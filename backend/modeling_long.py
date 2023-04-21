@@ -120,11 +120,11 @@ class LlamaFlashAttentionWrapper(torch.nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        past_key_value: Optional[Tuple[torch.Tensor]] = None,
         attention_mask: Optional[torch.Tensor] = None,
-        use_cache: bool = False,
+        position_ids: Optional[torch.LongTensor] = None,
+        past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: bool = False,
-        position_ids=None,
+        use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
 
@@ -138,13 +138,11 @@ class LlamaFlashAttentionWrapper(torch.nn.Module):
             bsz, q_len, self.attention.num_heads, self.attention.head_dim).transpose(1, 2)
 
         kv_seq_len = key_states.shape[-2]
-        offset = 0
         if past_key_value is not None:
-            offset = past_key_value[0].shape[-2]
-            kv_seq_len += offset
+            kv_seq_len += past_key_value[0].shape[-2]
         cos, sin = self.attention.rotary_emb(value_states, seq_len=kv_seq_len)
         query_states, key_states = modeling_llama.apply_rotary_pos_emb(
-            query_states, key_states, cos, sin, offset=offset)
+            query_states, key_states, cos, sin, position_ids)
         # [bsz, nh, t, hd]
 
         if past_key_value is not None:

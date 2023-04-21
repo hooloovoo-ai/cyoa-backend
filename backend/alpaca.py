@@ -4,7 +4,7 @@ from celery.utils.log import get_task_logger
 app = Celery(__name__)
 logger = get_task_logger(__name__)
 
-QUANTIZE = True
+QUANTIZE = False
 
 model = None
 tokenizer = None

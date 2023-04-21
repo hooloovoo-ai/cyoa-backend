@@ -7,13 +7,13 @@ app = Celery(__name__)
 logger = get_task_logger(__name__)
 
 
-MODEL = "emozilla/llama-long-13b-scifi-fantasy-673-8192h-epoch5"
-# MODEL = "emozilla/llama-long-7b-scifi-fantasy-673-8192h-epoch5"
-HISTORY = 8192
+MODEL = "emozilla/llama-long-13b-scifi-fantasy-673-8192h-epoch4"
+HISTORY = 5600
 LEARNING_RATE = 3e-4
 DEVICE = "cuda"
 FINETUNING = False
-QUANTIZE = True
+QUANTIZE = False
+LONG_MODEL_TYPE = True
 
 models = {}
 original_model = None
@@ -27,7 +27,6 @@ class Bootstep(bootsteps.Step):
 
         import torch
         from transformers import AutoTokenizer
-        from .modeling_long import LlamaLongForCausalLM, GPTNeoXLongForCausalLM
 
         global accelerator, original_model, tokenizer
 
@@ -37,15 +36,24 @@ class Bootstep(bootsteps.Step):
         else:
             accelerator = None
 
-        original_model = LlamaLongForCausalLM.from_pretrained(
-            MODEL, torch_dtype=torch.bfloat16, device_map="auto", load_in_8bit=QUANTIZE) \
-            if "llama" in MODEL else GPTNeoXLongForCausalLM.from_pretrained(
-            MODEL, torch_dtype=torch.float16, device_map="auto", load_in_8bit=QUANTIZE)
+        if LONG_MODEL_TYPE:
+            from .modeling_long import LlamaLongForCausalLM, GPTNeoXLongForCausalLM
+            original_model = LlamaLongForCausalLM.from_pretrained(
+                MODEL, torch_dtype=torch.bfloat16, device_map="auto", load_in_8bit=QUANTIZE) \
+                if "llama" in MODEL else GPTNeoXLongForCausalLM.from_pretrained(
+                MODEL, torch_dtype=torch.float16, device_map="auto", load_in_8bit=QUANTIZE)
+        else:
+            from transformers import AutoModelForCausalLM
+            original_model = AutoModelForCausalLM.from_pretrained(
+                MODEL, torch_dtype=torch.bfloat16, device_map="auto", load_in_8bit=QUANTIZE)
         logger.info(f"device map: {original_model.hf_device_map}")
+
+        original_model.config.use_cache = True
 
         tokenizer = AutoTokenizer.from_pretrained(MODEL)
         tokenizer.pad_token_id = 0
-        tokenizer.model_max_length = original_model.config.max_positions
+        if LONG_MODEL_TYPE:
+            tokenizer.model_max_length = original_model.config.max_positions
 
 
 app.steps['worker'].add(Bootstep)
