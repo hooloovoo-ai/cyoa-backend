@@ -15,7 +15,7 @@ class Bootstep(bootsteps.Step):
         super().__init__(parent, **options)
 
         import torch
-        from transformers import LlamaForCausalLM, LlamaTokenizer
+        from transformers import LlamaForCausalLM, AutoTokenizer
 
         global model, tokenizer
         model = LlamaForCausalLM.from_pretrained(
@@ -25,7 +25,8 @@ class Bootstep(bootsteps.Step):
             load_in_8bit=QUANTIZE,
         )
         logger.info(f"device map: {model.hf_device_map}")
-        tokenizer = LlamaTokenizer.from_pretrained("chavinlo/gpt4-x-alpaca")
+        tokenizer = AutoTokenizer.from_pretrained("chavinlo/gpt4-x-alpaca")
+        tokenizer.bos_token_id = 2
         tokenizer.model_max_length = 2048
 
 

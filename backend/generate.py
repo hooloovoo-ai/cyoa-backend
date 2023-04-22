@@ -51,7 +51,6 @@ class Bootstep(bootsteps.Step):
         original_model.config.use_cache = True
 
         tokenizer = AutoTokenizer.from_pretrained(MODEL)
-        tokenizer.pad_token_id = 0
         if LONG_MODEL_TYPE:
             tokenizer.model_max_length = original_model.config.max_positions
 
