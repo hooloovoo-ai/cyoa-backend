@@ -44,21 +44,21 @@ ID = "F9AA0D31"
 
 def benchmark(
     model_name: str, quantize: bool, compile: bool, profile: bool, long_model: bool,
-    save_story: bool
+    save_story: bool, deepspeed: bool,
 ) -> List[Tuple[int, float]]:
     device_map = None if compile or profile else "auto"
     if long_model:
         from ..modeling_long import LlamaLongForCausalLM
         model = LlamaLongForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=torch.bfloat16 if not deepspeed else torch.float16,
             load_in_8bit=quantize,
             device_map=device_map,
         )
     else:
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.bfloat16,
+            torch_dtype=torch.bfloat16 if not deepspeed else torch.float16,
             load_in_8bit=quantize,
             device_map=device_map,
         )
@@ -72,6 +72,11 @@ def benchmark(
 
     model.config.use_cache = True
 
+    if deepspeed:
+        import deepspeed as ds
+        model = ds.init_inference(
+            model=model, mp_size=1, dtype=torch.float16, replace_method="auto", replace_with_kernel_inject=True).eval()
+
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     if hasattr(model.config, "max_positions"):
@@ -81,10 +86,10 @@ def benchmark(
     HISTORY_LEN = TARGET_TOKEN_LENGTH - 64
     TOTAL_CHUNKS = TARGET_TOKEN_LENGTH // HISTORY_LEN
 
-    book_start =  f"{TITLE}\n\n{AUTHOR}\n\n\n\n{START}"
+    book_start = f"{TITLE}\n\n{AUTHOR}\n\n\n\n{START}"
     book = tokenizer(book_start, return_tensors="pt").input_ids.to("cuda")
 
-    filename_base = f"{model_name.replace('/', '-')}{'_8bit' if quantize else ''}{'_compile' if compile else ''}{'-profile' if profile else ''}_devices{os.environ.get('CUDA_VISIBLE_DEVICES', '')}"
+    filename_base = f"{model_name.replace('/', '-')}{'_8bit' if quantize else ''}{'_compile' if compile else ''}{'-profile' if profile else ''}_devices{os.environ.get('CUDA_VISIBLE_DEVICES', '')}{'_deepspeed' if deepspeed else ''}"
 
     f = open(f"{filename_base}.{'txt' if profile else 'csv'}", "w")
     if save_story:
@@ -154,7 +159,8 @@ def benchmark(
 
                 new_tokens = output_tokens[:, input_ids.shape[1]:]
 
-                new_text = tokenizer.decode(new_tokens[0], skip_special_tokens=True)
+                new_text = tokenizer.decode(
+                    new_tokens[0], skip_special_tokens=True)
                 if s is not None:
                     s.write(new_text)
                     s.flush()
@@ -184,12 +190,13 @@ def parse_args():
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--long_model", action="store_true")
     parser.add_argument("--save_story", action="store_true")
+    parser.add_argument("--deepspeed", action="store_true")
     return parser.parse_args()
 
 
 def main(args):
     results = benchmark(args.model_name, args.quantize,
-                        args.compile, args.profile, args.long_model, args.save_story)
+                        args.compile, args.profile, args.long_model, args.save_story, args.deepspeed)
 
 
 if __name__ == "__main__":
