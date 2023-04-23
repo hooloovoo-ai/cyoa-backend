@@ -46,7 +46,12 @@ def benchmark(
     model_name: str, quantize: bool, compile: bool, profile: bool, long_model: bool,
     save_story: bool, deepspeed: bool,
 ) -> List[Tuple[int, float]]:
-    device_map = None if compile or profile else "auto"
+    if compile or profile:
+        device_map = None
+    elif deepspeed:
+        device_map = {'': int(os.getenv('LOCAL_RANK', '0'))}
+    else:
+        device_map = "auto"
     if long_model:
         from ..modeling_long import LlamaLongForCausalLM
         model = LlamaLongForCausalLM.from_pretrained(
@@ -64,7 +69,7 @@ def benchmark(
         )
     if device_map:
         print(f"device map: {model.hf_device_map}")
-    else:
+    elif not deepspeed:
         model = model.to("cuda")
 
     if compile:
@@ -74,8 +79,10 @@ def benchmark(
 
     if deepspeed:
         import deepspeed as ds
+        world_size = int(os.getenv('WORLD_SIZE', '1'))
+        print(f"deepspeed mp_size = {world_size}")
         model = ds.init_inference(
-            model=model, mp_size=1, dtype=torch.float16, replace_method="auto", replace_with_kernel_inject=True).eval()
+            model=model, mp_size=world_size, dtype=torch.float16, replace_method="auto", replace_with_kernel_inject=True).eval()
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
@@ -91,16 +98,19 @@ def benchmark(
 
     filename_base = f"{model_name.replace('/', '-')}{'_8bit' if quantize else ''}{'_compile' if compile else ''}{'-profile' if profile else ''}_devices{os.environ.get('CUDA_VISIBLE_DEVICES', '')}{'_deepspeed' if deepspeed else ''}"
 
-    f = open(f"{filename_base}.{'txt' if profile else 'csv'}", "w")
-    if save_story:
-        s = open(f"{filename_base}.story.txt", "w", encoding="utf-8")
-        s.write(book_start)
-        s.flush()
-    else:
-        s = None
+    is_main_process = not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0
 
-    if not profile:
-        f.write("Prompt tokens,Inference tokens/sec\n")
+    if is_main_process:
+        f = open(f"{filename_base}.{'txt' if profile else 'csv'}", "w")
+        if save_story:
+            s = open(f"{filename_base}.story.txt", "w", encoding="utf-8")
+            s.write(book_start)
+            s.flush()
+        else:
+            s = None
+
+        if not profile:
+            f.write("Prompt tokens,Inference tokens/sec\n")
 
     with DummyWith() if profile else (torch.no_grad() if compile else torch.inference_mode()):
         if compile:
@@ -119,7 +129,7 @@ def benchmark(
                     repetition_penalty=REPETITION_PENALTY,
                 )
 
-        with tqdm(total=TARGET_TOKEN_LENGTH - book.shape[1]) as pbar:
+        with tqdm(total=TARGET_TOKEN_LENGTH - book.shape[1], disable=not is_main_process) as pbar:
             while True:
                 start = time.time()
                 current_token_length = book.shape[1]
@@ -130,13 +140,17 @@ def benchmark(
                 location = current_token_length / TARGET_TOKEN_LENGTH
                 chunk = current_token_length // HISTORY_LEN
 
-                header = tokenizer(
-                    f"ID: {ID} Chunk: {chunk} of {TOTAL_CHUNKS}\n\n\n",
-                    return_tensors="pt",
-                ).input_ids.to("cuda")
+                if long_model:
+                    header = tokenizer(
+                        f"ID: {ID} Chunk: {chunk} of {TOTAL_CHUNKS}\n\n\n",
+                        return_tensors="pt",
+                    ).input_ids.to("cuda")
+                else:
+                    header = None
                 context = book[:, -HISTORY_LEN:]
 
-                input_ids = torch.cat((header, context), 1)
+                input_ids = torch.cat(
+                    (header, context), 1) if header is not None else context
                 input_ids = torch.cat([input_ids] * NUM_GENERATIONS, dim=0)
                 # input_ids = context
                 attention_mask = torch.ones(1, input_ids.shape[1])
@@ -161,9 +175,6 @@ def benchmark(
 
                 new_text = tokenizer.decode(
                     new_tokens[0], skip_special_tokens=True)
-                if s is not None:
-                    s.write(new_text)
-                    s.flush()
 
                 pbar.update(new_tokens.shape[1])
 
@@ -171,15 +182,19 @@ def benchmark(
 
                 end = time.time()
 
-                if profile:
-                    f.write(
-                        f"{current_token_length}\n{prof.key_averages().table(sort_by='cuda_time_total', row_limit=10)}\n\n"
-                    )
-                else:
-                    f.write(
-                        f"{current_token_length},{MAX_NEW_TOKENS / (end - start)}\n"
-                    )
-                f.flush()
+                if is_main_process:
+                    if s is not None:
+                        s.write(new_text)
+                        s.flush()
+                    if profile:
+                        f.write(
+                            f"{current_token_length}\n{prof.key_averages().table(sort_by='cuda_time_total', row_limit=10)}\n\n"
+                        )
+                    else:
+                        f.write(
+                            f"{current_token_length},{MAX_NEW_TOKENS / (end - start)}\n"
+                        )
+                    f.flush()
 
 
 def parse_args():
@@ -191,6 +206,7 @@ def parse_args():
     parser.add_argument("--long_model", action="store_true")
     parser.add_argument("--save_story", action="store_true")
     parser.add_argument("--deepspeed", action="store_true")
+    parser.add_argument("--local_rank", type=int)
     return parser.parse_args()
 
 
