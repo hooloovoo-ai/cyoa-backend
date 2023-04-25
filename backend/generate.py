@@ -6,14 +6,18 @@ from celery.utils.log import get_task_logger
 app = Celery(__name__)
 logger = get_task_logger(__name__)
 
-
 MODEL = "emozilla/llama-long-13b-scifi-fantasy-673-8192h-epoch4"
 HISTORY = 5600
+LONG_MODEL_TYPE = True
+
+# MODEL = "emozilla/llama-7b-scifi-fantasy-673-8192n"
+# HISTORY = 8192
+# LONG_MODEL_TYPE = False
+
 LEARNING_RATE = 3e-4
 DEVICE = "cuda"
 FINETUNING = False
 QUANTIZE = False
-LONG_MODEL_TYPE = True
 
 models = {}
 original_model = None
@@ -74,7 +78,7 @@ def generate(id: str = "",
              totalChunks: int = 1,
              text: str = "",
              temperature: float = 0.8,
-             repetitionPenalty=1.1,
+             repetitionPenalty = 1.1,
              maxNewTokens: int = 128,
              generations: int = 1):
 
@@ -83,8 +87,11 @@ def generate(id: str = "",
 
     id = get_id(id)
 
-    header = tokenizer(f"ID: {id} Chunk: {chunk} of {totalChunks}\n\n\n",
-                       return_tensors='pt').input_ids.to(DEVICE)
+    if LONG_MODEL_TYPE:
+        header = tokenizer(f"ID: {id} Chunk: {chunk} of {totalChunks}\n\n\n",
+                           return_tensors='pt').input_ids.to(DEVICE)
+    else:
+        header = None
     book = tokenizer(ftfy.ftfy(text),
                      return_tensors='pt').input_ids.to(DEVICE)
 
@@ -93,7 +100,8 @@ def generate(id: str = "",
         f"id: {id} supplied tokens: {book.shape[1]} requested tokens: {maxNewTokens} context: {context_len} generations: {generations}")
 
     context = book[:, -context_len:]
-    input_ids = torch.cat((header, context), 1)
+    input_ids = torch.cat(
+        (header, context), 1) if header is not None else context
     attention_mask = torch.ones(1, input_ids.shape[1])
     if generations > 1:
         input_ids = torch.cat([input_ids] * generations, dim=0)

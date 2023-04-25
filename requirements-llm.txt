@@ -1,9 +1,12 @@
 torch
 torchvision
 torchaudio
-git+https://github.com/huggingface/transformers@66d1eee6827fe85378bfcacf66d1aaf43d787a5c
+git+https://github.com/jquesnelle/transformers@flash-4.28.1
 git+https://github.com/jquesnelle/peft@lora-match-tensor
 accelerate
 sentencepiece
 ftfy
 ninja
+protobuf==3.19.6
+datasets
+evaluate
