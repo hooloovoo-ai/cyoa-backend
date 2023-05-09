@@ -1,4 +1,4 @@
-import re
+import re, os
 from hashlib import md5
 from celery import Celery, bootsteps
 from celery.utils.log import get_task_logger
@@ -6,13 +6,14 @@ from celery.utils.log import get_task_logger
 app = Celery(__name__)
 logger = get_task_logger(__name__)
 
-MODEL = "emozilla/llama-long-13b-scifi-fantasy-673-8192h-epoch4"
-HISTORY = 5600
-LONG_MODEL_TYPE = True
+# MODEL = "emozilla/llama-long-13b-scifi-fantasy-673-8192h-epoch4"
+# HISTORY = 5600
+# LONG_MODEL_TYPE = True
 
+MODEL = "mosaicml/mpt-7b-storywriter"
 # MODEL = "emozilla/llama-7b-scifi-fantasy-673-8192n"
-# HISTORY = 8192
-# LONG_MODEL_TYPE = False
+HISTORY = 8192
+LONG_MODEL_TYPE = False
 
 LEARNING_RATE = 3e-4
 DEVICE = "cuda"
@@ -47,11 +48,22 @@ class Bootstep(bootsteps.Step):
                 if "llama" in MODEL else GPTNeoXLongForCausalLM.from_pretrained(
                 MODEL, torch_dtype=torch.float16, device_map="auto", load_in_8bit=QUANTIZE)
         else:
-            from transformers import AutoModelForCausalLM
-            original_model = AutoModelForCausalLM.from_pretrained(
-                MODEL, torch_dtype=torch.bfloat16, device_map="auto", load_in_8bit=QUANTIZE)
-        logger.info(f"device map: {original_model.hf_device_map}")
+            from transformers import AutoModelForCausalLM, AutoConfig
 
+            if "mosaicml" in MODEL:
+                config = AutoConfig.from_pretrained(MODEL, trust_remote_code=True)
+                config.update({"max_seq_len": HISTORY})
+                # config.attn_config['attn_impl'] = 'triton'
+                device_map = {'': int(os.getenv('LOCAL_RANK', '0'))}
+            else:
+                device_map = "auto"
+                config = None
+            
+            original_model = AutoModelForCausalLM.from_pretrained(
+                MODEL, torch_dtype=torch.bfloat16, device_map=device_map, 
+                load_in_8bit=QUANTIZE, config=config, trust_remote_code=True)
+        
+        logger.info(f"device map: {original_model.hf_device_map}")
         original_model.config.use_cache = True
 
         tokenizer = AutoTokenizer.from_pretrained(MODEL)
@@ -111,7 +123,7 @@ def generate(id: str = "",
 
     model, optimizer = get_model(id)
     output_tokens = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_new_tokens=maxNewTokens,
-                                   do_sample=True, temperature=temperature, repetition_penalty=repetitionPenalty)
+                                   do_sample=True, temperature=0.75, repetition_penalty=1.05)
 
     new_tokens = output_tokens[:, input_ids.shape[1]:]
     new_text = [tokenizer.decode(tokens, skip_special_tokens=True)
