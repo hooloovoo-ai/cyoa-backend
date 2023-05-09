@@ -57,7 +57,9 @@ class Bootstep(bootsteps.Step):
             tokenizer.bos_token_id = 2
             tokenizer.model_max_length = 2048
 
-        stopping_criteria = StoppingCriteriaList([KeywordsStoppingCriteria([tokenizer.encode(w)[0] for w in ["\n", "#"]])])
+        to_stop_on = [tokenizer.encode(w, add_special_tokens=False)[0] for w in ["\n", "#"]]
+        to_stop_on.append(tokenizer.bos_token_id)
+        stopping_criteria = StoppingCriteriaList([KeywordsStoppingCriteria(to_stop_on)])
 
         
 
