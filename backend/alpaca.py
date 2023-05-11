@@ -5,11 +5,11 @@ from celery.utils.log import get_task_logger
 app = Celery(__name__)
 logger = get_task_logger(__name__)
 
-MODEL = "chavinlo/gpt4-x-alpaca"
-QUANTIZE = True
+# MODEL = "chavinlo/gpt4-x-alpaca"
+# QUANTIZE = True
 
-# MODEL = "mosaicml/mpt-7b-instruct"
-# QUANTIZE = False
+MODEL = "mosaicml/mpt-7b-instruct"
+QUANTIZE = False
 
 model = None
 tokenizer = None

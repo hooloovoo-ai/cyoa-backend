@@ -10,8 +10,8 @@ logger = get_task_logger(__name__)
 # HISTORY = 5600
 # LONG_MODEL_TYPE = True
 
-MODEL = "mosaicml/mpt-7b-storywriter"
-# MODEL = "emozilla/llama-7b-scifi-fantasy-673-8192n"
+# MODEL = "mosaicml/mpt-7b-storywriter"
+MODEL = "emozilla/llama-7b-scifi-fantasy-673-8192n"
 HISTORY = 8192
 LONG_MODEL_TYPE = False
 
@@ -89,13 +89,17 @@ def generate(id: str = "",
              chunk: int = 0,
              totalChunks: int = 1,
              text: str = "",
-             temperature: float = 0.8,
-             repetitionPenalty = 1.1,
+             temperature: float = 0.75,
+             repetitionPenalty = 1.05,
              maxNewTokens: int = 128,
              generations: int = 1):
 
     import torch
     import ftfy
+
+    # SAFETY FOR RELEASE
+    maxNewTokens = 256
+    generations = 1
 
     id = get_id(id)
 
@@ -123,7 +127,7 @@ def generate(id: str = "",
 
     model, optimizer = get_model(id)
     output_tokens = model.generate(input_ids=input_ids, attention_mask=attention_mask, max_new_tokens=maxNewTokens,
-                                   do_sample=True, temperature=0.75, repetition_penalty=1.05)
+                                   do_sample=True, temperature=temperature, repetition_penalty=repetitionPenalty)
 
     new_tokens = output_tokens[:, input_ids.shape[1]:]
     new_text = [tokenizer.decode(tokens, skip_special_tokens=True)
